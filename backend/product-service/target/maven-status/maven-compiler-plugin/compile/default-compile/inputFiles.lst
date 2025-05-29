@@ -1,0 +1,5 @@
+/workspaces/ecommerce-platform-qwik-springboot/backend/product-service/src/main/java/com/ecommerce/product/ProductServiceApplication.java
+/workspaces/ecommerce-platform-qwik-springboot/backend/product-service/src/main/java/com/ecommerce/product/config/WebConfig.java
+/workspaces/ecommerce-platform-qwik-springboot/backend/product-service/src/main/java/com/ecommerce/product/controller/ProductController.java
+/workspaces/ecommerce-platform-qwik-springboot/backend/product-service/src/main/java/com/ecommerce/product/model/Product.java
+/workspaces/ecommerce-platform-qwik-springboot/backend/product-service/src/main/java/com/ecommerce/product/repository/ProductRepository.java

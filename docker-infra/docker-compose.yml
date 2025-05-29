@@ -39,7 +39,7 @@ services:
     hostname: postgres
     container_name: postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_DB: ecommerce_db
       POSTGRES_USER: devuser
@@ -57,7 +57,51 @@ services:
     command: redis-server --appendonly yes # Enable persistence
     volumes:
       - redis_data:/data # Persist data
+  
+  # New PostgreSQL database for the Order Service
+  order_db:
+    image: 'postgres:14.5-alpine'
+    container_name: order_db
+    environment:
+      POSTGRES_DB: order_db # Database name
+      POSTGRES_USER: orderuser # Database user
+      POSTGRES_PASSWORD: orderpassword # Database password
+    ports:
+      - '5432:5432' # Map host port 5433 to container port 5432. This avoids conflict with your existing 'postgres' on 5432.
+    volumes:
+      - order_db_data:/var/lib/postgresql/data # Persistent data volume for order_db
+    networks:
+      - app-network
+    healthcheck: # Keep the healthcheck, it's good practice
+      test: ["CMD-SHELL", "pg_isready -U orderuser -d order_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  order-service:
+    build:
+      context: ../backend/order-service # This tells Docker where to find your Spring Boot project
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080" # Map host port 8080 to container port 8080
+    environment:
+      # This is KEY: Use the service name 'order_db' here, NOT 'localhost'
+      SPRING_DATASOURCE_URL: jdbc:postgresql://order_db:5432/order_db
+      SPRING_DATASOURCE_USERNAME: orderuser
+      SPRING_DATASOURCE_PASSWORD: orderpassword
+    depends_on:
+      order_db:
+        condition: service_started # Ensure order_db is ready before order-service starts
+    networks:
+      - app-network # Must be on the same network as order_db
+
+  
 
 volumes:
   postgres_data:
   redis_data:
+  order_db_data: # <-- ADD THIS NEW VOLUME for order_d
+
+networks:
+  app-network:
+    driver: bridge # 'bridge' is the default and usually sufficient for local development

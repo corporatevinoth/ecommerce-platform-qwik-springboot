@@ -1,12 +1,13 @@
-import { component$, isDev } from "@builder.io/qwik";
-import { QwikCityProvider, RouterOutlet } from "@builder.io/qwik-city";
-import { RouterHead } from "./components/router-head/router-head";
+// src/root.tsx
+import { component$ } from '@builder.io/qwik';
+import { QwikCityProvider, RouterOutlet, ServiceWorkerRegister } from '@builder.io/qwik-city';
+import { RouterHead } from './components/router-head/router-head'; // This might need manual creation later if it's missing, but it's usually auto-generated.
 
-import "./global.css";
+import './global.css'; // Global styles, usually found in a new Qwik project
 
 export default component$(() => {
   /**
-   * The root of a QwikCity site always start with the <QwikCityProvider> component,
+   * The root of a QwikCity site always starts with the <QwikCityProvider> component,
    * immediately followed by the document's <head> and <body>.
    *
    * Don't remove the `<head>` and `<body>` elements.
@@ -15,17 +16,13 @@ export default component$(() => {
   return (
     <QwikCityProvider>
       <head>
-        <meta charset="utf-8" />
-        {!isDev && (
-          <link
-            rel="manifest"
-            href={`${import.meta.env.BASE_URL}manifest.json`}
-          />
-        )}
+        <meta charSet="utf-8" />
+        <link rel="manifest" href="/manifest.json" />
         <RouterHead />
       </head>
       <body lang="en">
         <RouterOutlet />
+        <ServiceWorkerRegister />
       </body>
     </QwikCityProvider>
   );
