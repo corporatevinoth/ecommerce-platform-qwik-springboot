@@ -1,60 +1,78 @@
-import { component$, useSignal, useTask$ } from '@builder.io/qwik';
+import { component$, useSignal, useTask$, useContext, $ } from '@builder.io/qwik'; // <<< ENSURE '$' IS INCLUDED HERE
+import { Link } from '@builder.io/qwik-city';
 
-// Define a simple Product interface matching your Spring Boot Product model
-// Adjust these types if your actual Product model has more/different fields.
+import { cn } from '../../lib/utils';
+
+import { CART_CONTEXT, CartItem } from '../../context/cart';
+
 interface Product {
-  id: string; // Assuming Spring Boot returns ID as string (UUID) or Long
+  id: number;
   name: string;
   description: string;
   price: number;
   stockQuantity: number;
-  // Add other fields like 'image' if your Product service provides them
 }
+
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD'
+  }).format(amount);
+};
 
 export default component$(() => {
   const products = useSignal<Product[]>([]);
   const loading = useSignal(true);
   const error = useSignal<string | null>(null);
 
-  // Access the product service URL from environment variables
-  const PRODUCT_SERVICE_API_URL = import.meta.env.VITE_PRODUCT_SERVICE_API_URL;
+  // Use absolute URL for SSR via Vite proxy
+  const QWIK_DEV_BASE_URL = 'http://localhost:5173';
+  const PRODUCT_SERVICE_API_URL = `${QWIK_DEV_BASE_URL}/api/products`;
 
-  // useTask$ is used for data fetching on component load
+  // Get the cart signal from context
+  const cartSignal = useContext(CART_CONTEXT);
+
+  // Wrap handleAddToCart with $() to make it a QRL
+  const handleAddToCart = $((product: Product) => {
+    cartSignal.value = {
+      ...cartSignal.value,
+      items: cartSignal.value.items.some(item => item.id === product.id)
+        ? cartSignal.value.items.map(item =>
+            item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          )
+        : [...cartSignal.value.items, { id: product.id, name: product.name, price: product.price, quantity: 1 }],
+    };
+    console.log('Cart updated:', cartSignal.value.items);
+  });
+
   useTask$(async ({ track }) => {
-    // Re-run this task if the API URL changes (though it's usually static)
     track(() => PRODUCT_SERVICE_API_URL);
 
     if (!PRODUCT_SERVICE_API_URL) {
-      error.value = "Product Service API URL is not defined in environment variables.";
+      error.value = "Product Service API URL is not defined.";
       loading.value = false;
       return;
     }
 
-    // Log the URL that Qwik is attempting to fetch from.
-    // This will appear in the terminal where `npm run dev` is running.
-    console.log('Qwik attempting to fetch products from:', PRODUCT_SERVICE_API_URL);
+    console.log('Qwik attempting to fetch products from (via proxy):', PRODUCT_SERVICE_API_URL);
 
     try {
       loading.value = true;
-      error.value = null; // Clear previous errors
+      error.value = null;
 
       const response = await fetch(PRODUCT_SERVICE_API_URL);
 
-      // --- ADDED FOR MORE DEBUGGING ---
       console.log('Response Status:', response.status);
       console.log('Response Content-Type:', response.headers.get('Content-Type'));
-      const responseText = await response.text(); // Read the response body as text
-      console.log('Raw Response Text:', responseText.substring(0, 500)); // Log first 500 chars
-      // --- END ADDED FOR MORE DEBUGGING ---
+      const responseText = await response.text();
+      console.log('Raw Response Text (first 500 chars):', responseText.substring(0, 500));
 
       if (!response.ok) {
-        // Handle HTTP errors based on the status and responseText
         throw new Error(`HTTP error! status: ${response.status}, message: ${responseText}`);
       }
 
-      // Try to parse the text as JSON
-      const data = JSON.parse(responseText); 
-      products.value = data; // Assign fetched data to the signal
+      const data = JSON.parse(responseText);
+      products.value = data;
     } catch (e: any) {
       console.error('Failed to fetch products:', e);
       error.value = `Failed to load products: ${e.message || 'Unknown error'}. Please check backend service.`;
@@ -86,14 +104,46 @@ export default component$(() => {
 
       {!loading.value && !error.value && products.value.length > 0 && (
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {products.value.map((product) => (
-            <div key={product.id} class="bg-white rounded-lg shadow-md overflow-hidden p-4">
-              <h2 class="text-lg font-semibold text-gray-800">{product.name}</h2>
-              <p class="text-gray-600 text-sm">{product.description}</p>
-              <p class="text-xl font-bold text-pink-600 mt-2">${product.price.toFixed(2)}</p>
-              {/* You can add more product details here */}
-            </div>
-          ))}
+          {products.value.map((product) => {
+            const isProductInCart = cartSignal.value.items.some(item => item.id === product.id);
+            return (
+              <Link key={product.id} href={`/products/${product.id}`} class="block hover:shadow-lg transition-shadow">
+                <div class="bg-white rounded-lg shadow-md overflow-hidden p-4">
+                  <h2 class="text-lg font-semibold text-gray-800">{product.name}</h2>
+                  <p class="text-gray-600 text-sm">{product.description}</p>
+                  <p class="text-xl font-bold text-pink-600 mt-2">{formatCurrency(product.price)}</p>
+                  <div class="mt-4 flex items-center justify-between">
+                    <button
+                      onClick$={(e) => {
+                        e.preventDefault();
+                        handleAddToCart(product);
+                      }}
+                      disabled={isProductInCart}
+                      class={cn(
+                        "bg-pink-500 text-white px-4 py-2 rounded-lg shadow-md hover:bg-pink-600 transition-colors",
+                        isProductInCart && "opacity-50 cursor-not-allowed"
+                      )}
+                    >
+                      {isProductInCart ? (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 h-4 w-4 inline-block"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><path d="m9 11 3 3L22 4"></path></svg>
+                          Added
+                        </>
+                      ) : (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 h-4 w-4 inline-block"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+                          Add to Cart
+                        </>
+                      )}
+                    </button>
+                    <button class="text-gray-600 hover:text-pink-600 transition-colors">
+                       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg>
+                    </button>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>
