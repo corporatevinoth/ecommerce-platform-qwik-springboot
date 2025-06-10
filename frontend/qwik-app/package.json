@@ -1,40 +1,54 @@
 {
-  "name": "my-qwik-empty-starter",
-  "description": "Blank project with routing included",
-  "engines": {
-    "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
-  },
-  "engines-annotation": "Mostly required by sharp which needs a Node-API v9 compatible runtime",
+  "name": "qwik-app",
+  "version": "0.0.1",
   "private": true,
-  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "build": "qwik build",
     "build.client": "vite build",
-    "build.preview": "vite build --ssr src/entry.preview.tsx",
-    "build.types": "tsc --incremental --noEmit",
-    "deploy": "echo 'Run \"npm run qwik add\" to install a server adapter'",
-    "dev": "vite --mode ssr",
-    "dev.debug": "node --inspect-brk ./node_modules/vite/bin/vite.js --mode ssr --force",
+    "build.ssr": "qwik build ssr",
+    "build.server": "qwik build server",
+    "build.types": "qwik build types",
+    "deploy": "echo 'Run \"npm run qwik add\" to install a server adaptor'",
+    "dev": "vite --mode ssr --host 0.0.0.0",
+    "dev.debug": "node --inspect-brk ./node_modules/vite/bin/vite.js --mode ssr --host 0.0.0.0",
     "fmt": "prettier --write .",
-    "fmt.check": "prettier --check .",
     "lint": "eslint \"src/**/*.ts*\"",
-    "preview": "qwik build preview && vite preview --open",
-    "start": "vite --open --mode ssr",
-    "qwik": "qwik"
+    "qwik": "qwik",
+    "serve": "serve dist",
+    "start": "vite --open --mode ssr --host 0.0.0.0",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@builder.io/qwik": "^1.14.1",
-    "@builder.io/qwik-city": "^1.14.1",
-    "@eslint/js": "latest",
-    "@types/node": "20.14.11",
-    "eslint": "9.25.1",
-    "eslint-plugin-qwik": "^1.14.1",
-    "globals": "16.0.0",
-    "prettier": "3.3.3",
+    "@builder.io/qwik": "^1.5.0",
+    "@builder.io/qwik-city": "^1.5.0",
+    "@types/eslint": "8.56.10",
+    "@types/node": "^20.14.0",
+    "@typescript-eslint/eslint-plugin": "7.11.0",
+    "@typescript-eslint/parser": "7.11.0",
+    "eslint": "8.57.0",
+    "eslint-plugin-qwik": "^1.5.0",
+    "prettier": "^3.3.1",
     "typescript": "5.4.5",
-    "typescript-eslint": "8.26.1",
-    "undici": "*",
-    "vite": "5.3.5",
-    "vite-tsconfig-paths": "^4.2.1"
+    "undici": "^6.18.2",
+    "vite": "^5.3.0",
+    "vitest": "^1.4.0"
+  },
+  "dependencies": {
+    "@radix-ui/react-popover": "^1.1.0",
+    "@radix-ui/react-select": "^2.0.0",
+    "@radix-ui/react-slot": "^1.0.2",
+    "@radix-ui/react-tabs": "^1.0.4",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "framer-motion": "^11.2.10",
+    "lucide-react": "^0.395.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^2.3.0",
+    "tailwindcss-animate": "^1.0.7"
   }
 }
