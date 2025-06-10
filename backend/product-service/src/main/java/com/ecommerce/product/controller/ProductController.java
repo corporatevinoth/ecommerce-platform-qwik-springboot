@@ -65,4 +65,9 @@ public class ProductController {
             return ResponseEntity.notFound().build();
         }
     }
+
+    @GetMapping("/status")
+    public String getStatus() {
+        return "Product Service is UP!";
+    }
 }

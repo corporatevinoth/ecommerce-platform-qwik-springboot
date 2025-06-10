@@ -22,20 +22,18 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      # Define listeners for internal and external access
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9093
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      # Essential for a single-broker setup (not for production clusters)
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
     depends_on:
       - zookeeper
 
-  # PostgreSQL Database
+  # PostgreSQL Database (for Product Service or general use)
   postgres:
-    image: postgres:15-alpine # Lightweight Alpine image
+    image: postgres:14-alpine
     hostname: postgres
     container_name: postgres
     ports:
@@ -45,63 +43,115 @@ services:
       POSTGRES_USER: devuser
       POSTGRES_PASSWORD: devpassword
     volumes:
-      - postgres_data:/var/lib/postgresql/data # Persist data
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devuser -d ecommerce_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+    restart: unless-stopped
 
   # Redis Cache/Session Store
   redis:
-    image: redis:7-alpine # Lightweight Alpine image
+    image: redis:7-alpine
     hostname: redis
     container_name: redis
     ports:
       - "6379:6379"
-    command: redis-server --appendonly yes # Enable persistence
+    command: redis-server --appendonly yes
     volumes:
-      - redis_data:/data # Persist data
+      - redis_data:/data
+    networks:
+      - app-network
+    restart: unless-stopped
   
-  # New PostgreSQL database for the Order Service
+  # PostgreSQL database for the Order Service
   order_db:
     image: 'postgres:14.5-alpine'
     container_name: order_db
     environment:
-      POSTGRES_DB: order_db # Database name
-      POSTGRES_USER: orderuser # Database user
-      POSTGRES_PASSWORD: orderpassword # Database password
+      POSTGRES_DB: order_db
+      POSTGRES_USER: orderuser
+      POSTGRES_PASSWORD: orderpassword
     ports:
-      - '5432:5432' # Map host port 5433 to container port 5432. This avoids conflict with your existing 'postgres' on 5432.
+      - '5432:5432'
     volumes:
-      - order_db_data:/var/lib/postgresql/data # Persistent data volume for order_db
+      - order_db_data:/var/lib/postgresql/data
     networks:
       - app-network
-    healthcheck: # Keep the healthcheck, it's good practice
+    healthcheck:
       test: ["CMD-SHELL", "pg_isready -U orderuser -d order_db"]
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
+  # Order Service Spring Boot Application
   order-service:
     build:
-      context: ../backend/order-service # This tells Docker where to find your Spring Boot project
+      context: ../backend/order-service
       dockerfile: Dockerfile
     ports:
-      - "8080:8080" # Map host port 8080 to container port 8080
+      - "8080:8080"
     environment:
-      # This is KEY: Use the service name 'order_db' here, NOT 'localhost'
       SPRING_DATASOURCE_URL: jdbc:postgresql://order_db:5432/order_db
       SPRING_DATASOURCE_USERNAME: orderuser
       SPRING_DATASOURCE_PASSWORD: orderpassword
+      SERVER_PORT: 8080
     depends_on:
       order_db:
-        condition: service_started # Ensure order_db is ready before order-service starts
+        condition: service_started
     networks:
-      - app-network # Must be on the same network as order_db
+      - app-network
 
-  
+  # Product Service Spring Boot Application
+  product-service:
+    build:
+      context: ../backend/product-service
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ecommerce_db 
+      SPRING_DATASOURCE_USERNAME: devuser
+      SPRING_DATASOURCE_PASSWORD: devpassword
+      SERVER_PORT: 8081
+    depends_on:
+      postgres:
+        condition: service_started
+    networks:
+      - app-network
+
+  user-service:
+    build:
+      context: ../backend/user-service
+      dockerfile: Dockerfile
+    ports:
+      - "8083:8083" # Map host port 8083 to container port 8083
+    environment:
+      # Redis connection for user-service
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SERVER_PORT: 8083 # Internal port of the Spring Boot app
+      # PostgreSQL Database connection for user-service
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ecommerce_db # Connects to the 'postgres' service
+      SPRING_DATASOURCE_USERNAME: devuser # Matches POSTGRES_USER in your 'postgres' service
+      SPRING_DATASOURCE_PASSWORD: devpassword # Matches POSTGRES_PASSWORD in your 'postgres' service
+    depends_on:
+      redis:
+        condition: service_started # Wait for Redis to start
+      postgres: # <--- ADD THIS DEPENDENCY
+        condition: service_started # Wait for PostgreSQL to start
+    networks:
+      - app-network # Ensure it's on the same network as Redis and Postgres
 
 volumes:
   postgres_data:
   redis_data:
-  order_db_data: # <-- ADD THIS NEW VOLUME for order_d
+  order_db_data:
 
 networks:
   app-network:
-    driver: bridge # 'bridge' is the default and usually sufficient for local development
+    driver: bridge
